@@ -1,6 +1,8 @@
 .DS_Store
 .vscode
 
+keys_example/
+
 __pycache__
 
 venv
