@@ -55,7 +55,6 @@ async def monitor_balance_and_price(logger: Logger, binance_client: AsyncClient)
         except Exception as e:
             logger.error(f"Error in monitor_balance_and_price: {e}")
             logger.warning(traceback.format_exc())
-            break
 
 
 async def main():
