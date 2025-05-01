@@ -4,7 +4,9 @@
 
 Данный проект представляет собой спотового торгового бота для работы с Binance API. Бот реализует стратегию торговли с использованием веб-сокетов для получения данных о ценах и пользовательских потоков, с выполнения ордеров в зависимости от заданных условий.
 
-<div style="padding:62.17% 0 0 0;position:relative;"><iframe src="https://player.vimeo.com/video/1080665387?h=296f30f247&badge=0&autopause=0&player_id=0&app_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" style="position:absolute;top:0;left:0;width:100%;height:100%;" title="Запись экрана 2025-05-02 в 00.14.07"></iframe></div><script src="https://player.vimeo.com/api/player.js"></script>
+<!-- <div style="padding:62.17% 0 0 0;position:relative;"><iframe src="https://player.vimeo.com/video/1080665387?h=296f30f247&badge=0&autopause=0&player_id=0&app_id=58479" frameborder="0" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media" style="position:absolute;top:0;left:0;width:100%;height:100%;" title="Запись экрана 2025-05-02 в 00.14.07"></iframe></div><script src="https://player.vimeo.com/api/player.js"></script> -->
+
+[![Watch the video demonstration](https://i.vimeocdn.com/video/1080665387_640.jpg)](https://vimeo.com/1080665387/296f30f247?ts=0&share=copy)
 
 ---
 
