@@ -11,7 +11,6 @@ from bot.type import (
     ApiOrderResult,
     SymbolPriceFilterType,
     SymbolMarketLotSizeFilterType,
-    SymbolLotSizeFilterType,
 )
 import asyncio
 import traceback

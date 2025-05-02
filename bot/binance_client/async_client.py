@@ -11,7 +11,7 @@ import hmac
 import time
 import base64
 from enum import Enum
-from Crypto.PublicKey import RSA, ECC
+from Crypto.PublicKey import RSA
 from Crypto.Hash import SHA256
 from Crypto.Signature import pkcs1_15
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
@@ -29,7 +29,7 @@ class AsyncClient:
     WS_API_URL = "wss://ws-api.binance.com/ws-api/v3"
     WS_API_TESTNET_URL = "wss://ws-api.testnet.binance.vision/ws-api/v3"
 
-    REQUEST_RECVWINDOW: int = 10_000  #
+    REQUEST_RECVWINDOW: int = 10_000
     RETRY_DELAY = 0.2
     RETRY_ATTEMPTS = 5
 
@@ -48,21 +48,14 @@ class AsyncClient:
         private_key_pass: str | None = None,
     ):
         self.logger = logger.create_prefix("BinanceRestClient")
-
         self.api_key = api_key
-
         self.hmac_private_key = self._load_hmac_private_key(hmac_secret, private_key_pass)
         self.rsa_private_key = self._load_rsa_private_key(rsa_secret, private_key_pass)
         self.ed_private_key = self._load_ed_private_key(ed_secret, private_key_pass)
-
         self.is_testnet = is_testnet
         self.timestamp_offset = 0
-
-        # self.ws_api = None
         self._is_api_timeout = False
-
         self.loop = asyncio.get_event_loop()
-
         self.session = self._init_session()
 
     def _is_pem_key(self, private_key: str) -> bool:
@@ -74,8 +67,7 @@ class AsyncClient:
         private_key_pass: str | None = None,
         encoding=serialization.Encoding.PEM,
         format=serialization.PrivateFormat.PKCS8,
-    ):
-        # Если ключ в PEM формате, извлекаем содержимое
+    ) -> str:
         try:
             private_key_obj = load_pem_private_key(
                 private_key.encode("utf-8"),
@@ -87,32 +79,27 @@ class AsyncClient:
                 format=format,
                 encryption_algorithm=serialization.NoEncryption(),
             ).decode("utf-8")
-
         except Exception as e:
             raise ValueError(f"Failed to parse key in PEM format: {e}")
 
     def _load_hmac_private_key(self, private_key: str | None, private_key_pass: str | None = None):
         if not private_key:
-            return
-
+            return None
         if self._is_pem_key(private_key):
             try:
                 private_key = self._load_pem_key(private_key, private_key_pass)
             except Exception as e:
                 raise ValueError(f"Failed to parse HMAC key in PEM format: {e}")
-
         return private_key.strip()
 
     def _load_rsa_private_key(self, private_key: str | None, private_key_pass: str | None = None):
         if not private_key:
-            return
-
+            return None
         if self._is_pem_key(private_key):
             try:
                 private_key = self._load_pem_key(private_key, private_key_pass)
             except Exception as e:
                 raise ValueError(f"Failed to parse RSA key in PEM format: {e}")
-
         return RSA.import_key(private_key, passphrase=private_key_pass)
 
     def _load_ed_private_key(self, private_key: str | None, private_key_pass: str | None = None):
@@ -131,34 +118,27 @@ class AsyncClient:
 
     def _init_session(self) -> aiohttp.ClientSession:
         headers = {
-            # "Accept": "application/json",
             "Content-Type": "application/json;charset=utf-8",
         }
         if self.api_key:
             headers["X-MBX-APIKEY"] = self.api_key
+        return aiohttp.ClientSession(loop=self.loop, headers=headers)
 
-        session = aiohttp.ClientSession(loop=self.loop, headers=headers)
-        return session
-
-    def _rsa_signature(self, query_string: str):
+    def _rsa_signature(self, query_string: str) -> str:
         if not self.rsa_private_key:
             raise ValueError("RSA Private key required for private endpoints")
-
         h = SHA256.new(query_string.encode("utf-8"))
         signature = pkcs1_15.new(self.rsa_private_key).sign(h)
-        res = base64.b64encode(signature).decode("utf-8")
-        return res
+        return base64.b64encode(signature).decode("utf-8")
 
-    def _ed25519_signature(self, query_string: str):
+    def _ed25519_signature(self, query_string: str) -> str:
         if not self.ed_private_key or not isinstance(self.ed_private_key, Ed25519PrivateKey):
             raise ValueError("Ed25519 Private key required for private endpoints")
-
         return self.ed_private_key.sign(query_string.encode("utf-8")).decode("utf-8")
 
     def _hmac_signature(self, query_string: str) -> str:
         if not self.hmac_private_key:
             raise ValueError("HMAC Private key required for private endpoints")
-
         return hmac.new(
             self.hmac_private_key.encode("utf-8"), query_string.encode("utf-8"), hashlib.sha256
         ).hexdigest()
@@ -172,10 +152,8 @@ class AsyncClient:
             sig_func = self._hmac_signature
         else:
             raise ValueError("No private key or API secret provided")
-
         payload = "&".join([f"{param}={value}" for param, value in params.items()])
-        res = sig_func(payload)
-        return res
+        return sig_func(payload)
 
     @classmethod
     async def create(
@@ -197,13 +175,10 @@ class AsyncClient:
             is_testnet=is_testnet,
             private_key_pass=private_key_pass,
         )
-
         try:
             await self.ping()
-
             res = await self.get_server_time()
             self.timestamp_offset = res["serverTime"] - int(time.time() * 1000)
-
             return self
         except Exception:
             await self.close_connection()
@@ -212,9 +187,6 @@ class AsyncClient:
     async def close_connection(self):
         if self.session:
             await self.session.close()
-        # if self.ws_api:
-        #     await self.ws_api.close()
-        #     self.ws_api = None
 
     def _get_timestamp(self) -> int:
         return int(time.time() * 1000) + self.timestamp_offset
@@ -230,10 +202,8 @@ class AsyncClient:
 
     async def _send_request(
         self, http_method: str, uri: str, payload: dict | None = None, signed: bool = False
-    ):
-        if payload is None:
-            payload = {}
-
+    ) -> dict:
+        payload = payload or {}
         for key, value in payload.items():
             if isinstance(value, bool):
                 payload[key] = "true" if value else "false"
@@ -256,7 +226,6 @@ class AsyncClient:
             params = {"url": uri, "params": {}}
 
         method = getattr(self.session, http_method)
-
         response = await self._retry_async(func=method, retries=self.RETRY_ATTEMPTS, **params)
         return await self._parse_response(response)
 
@@ -264,26 +233,21 @@ class AsyncClient:
         if not self._is_api_timeout:
             self._is_api_timeout = True
             self.logger.warning(
-                f"Setting timeout for api requests for {timeout} secs.\nReason: {reason}",
+                f"Setting timeout for API requests for {timeout} secs. Reason: {reason}",
                 notify=True,
             )
             await asyncio.sleep(timeout)
             self._is_api_timeout = False
-            self.logger.info("Release pause, continue to send api requests", notify=True)
+            self.logger.info("Release pause, continue to send API requests", notify=True)
 
     async def _retry_async(self, func, retries=RETRY_ATTEMPTS, *args, **kwargs):
-        """Повторяет вызов 'func' при возникновении BinanceAPIException или других ошибок."""
         for attempt in range(1, retries + 1):
             try:
                 while self._is_api_timeout:
                     await asyncio.sleep(self.RETRY_DELAY)
-
                 if attempt > 1:
                     await asyncio.sleep(self.RETRY_DELAY)
-
-                res = await func(*args, **kwargs)
-                return res
-
+                return await func(*args, **kwargs)
             except asyncio.TimeoutError as e:
                 self.logger.warning(f"Timeout Error (attempt {attempt}): {e}", notify=True)
             except BinanceWebsocketUnableToConnect as e:
@@ -293,12 +257,11 @@ class AsyncClient:
                     )
                 else:
                     raise e
-
             except BinanceAPIException as e:
                 # Not errors:
                 # -2011 - Unknown order sent
                 # -2013 - Order does not exist.
-                if e.code == -2013 or e.code == -2011:
+                if e.code in [-2013, -2011]:
                     return e
 
                 self.logger.warning(f"BinanceApi Error: {e}")
@@ -345,18 +308,15 @@ class AsyncClient:
                         self.logger.warning(
                             f"IP banned for {timeout_sec} seconds. Reason: {e.message}", notify=True
                         )
-
             except Exception as e:
-                # Ловим все остальные непредвиденные ошибки
                 self.logger.error(f"Unexpected Error (attempt {attempt}): {e}", notify=True)
                 self.logger.warning(traceback.format_exc())
                 raise e
-
-        raise TimeoutError("Can not fetch request, exceeded max retries count. Request timed out")
+        raise TimeoutError("Exceeded max retries. Request timed out")
 
     def _create_api_uri(self, path: str, version: str) -> str:
-        url = self.API_TESTNET_URL if self.is_testnet else self.API_URL
-        return url + "/" + version + "/" + path
+        base_url = self.API_TESTNET_URL if self.is_testnet else self.API_URL
+        return f"{base_url}/{version}/{path}"
 
     async def _request_api(
         self,
@@ -365,7 +325,7 @@ class AsyncClient:
         signed: bool = False,
         version: str = VERSION_1,
         payload: dict | None = None,
-    ):
+    ) -> dict:
         uri = self._create_api_uri(path, version)
         return await self._send_request(http_method=method, uri=uri, signed=signed, payload=payload)
 
@@ -421,14 +381,9 @@ class AsyncClient:
 
     async def create_listen_key(self) -> str:
         # POST /api/v3/userDataStream
-        data = await self._post(
-            "userDataStream",
-            signed=False,
-            version=self.VERSION_3,
-        )
+        data = await self._post("userDataStream", signed=False, version=self.VERSION_3)
         if "listenKey" not in data:
             raise BinanceRequestException("listenKey not found in response")
-
         return data["listenKey"]
 
     async def keep_listen_key_alive(self, listen_key: str) -> None:

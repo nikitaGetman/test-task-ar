@@ -8,13 +8,6 @@ import websockets
 
 
 class BinanceWsQueueClient:
-    """
-    Универсальный WebSocket-клиент Binance (спот):
-    • Режим 'market'  — подписка на тиковые стримы по символам
-    • Режим 'user'    — личный стрим по listenKey (исполнение ордеров, баланс и др.)
-    Все сообщения кладутся в asyncio.Queue для дальнейшей обработки.
-    """
-
     WS_BASE = "wss://stream.binance.com:9443"
     WS_BASE_TESTNET = "wss://stream.testnet.binance.vision:9443"
 
